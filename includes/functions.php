@@ -1,5 +1,8 @@
 <?php
 
+//Debug
+echo "<pre>";
+
 $filename = "bhop_ssj_0_0_0.txt";
 
 $filename2 = "bhop_ssj.replay";
@@ -7,7 +10,7 @@ $filename2 = "bhop_ssj.replay";
 $steamid = "[U:1:156674509]";
 
 $output = read_btimes2($filename);
-write_shavit_final($filename2, $output[0], $steamid, $output[1]);
+write_shavit_final($filename2, $output[0], $steamid, $output[1], $output[3]);
 //write_shavit_old($filename2, $output[0]);
 
 function read_btimes2($filename) {
@@ -15,10 +18,10 @@ function read_btimes2($filename) {
 	if ($handle) {
 		$header = str_split(fread($handle, 8), 4);
 		$playerID = unpack('l', $header[0])[1];
-		$time = unpack('g', $header[1])[1];
+		$time = round(unpack('g', $header[1])[1], 6, PHP_ROUND_HALF_DOWN);
 		
 		while ($buffer = fread($handle, 24)) {
-			$data[] = str_split($buffer, 4);
+			$input[] = str_split($buffer, 4);
 		}
 		if (!feof($handle)) {
 			echo "Error: unexpected fread() fail\n";
@@ -26,15 +29,15 @@ function read_btimes2($filename) {
 		fclose($handle);
 	}
 
-	foreach ($data as $frame) {
-		$vPos[0][] = unpack('g', $frame[0])[1];
-		$vPos[1][] = unpack('g', $frame[1])[1];
-		$vPos[2][] = unpack('g', $frame[2])[1];
-		$vAng[0][] = unpack('g', $frame[3])[1];
-		$vAng[1][] = unpack('g', $frame[4])[1];
+	foreach ($input as $frame) {
+		$vPos[0][] = round(unpack('g', $frame[0])[1], 6, PHP_ROUND_HALF_DOWN);
+		$vPos[1][] = round(unpack('g', $frame[1])[1], 6, PHP_ROUND_HALF_DOWN);
+		$vPos[2][] = round(unpack('g', $frame[2])[1], 6, PHP_ROUND_HALF_DOWN);
+		$vAng[0][] = round(unpack('g', $frame[3])[1], 6, PHP_ROUND_HALF_DOWN);
+		$vAng[1][] = round(unpack('g', $frame[4])[1], 6, PHP_ROUND_HALF_DOWN);
 		$buttons[] = unpack('l', $frame[5])[1];
 	}
-
+	
 	$data[0] = $vPos[0];
 	$data[1] = $vPos[1];
 	$data[2] = $vPos[2];
@@ -42,15 +45,24 @@ function read_btimes2($filename) {
 	$data[4] = $vAng[1];
 	$data[5] = $buttons;
 	
+	$data1[0] = $input[0];
+	$data1[1] = $input[1];
+	$data1[2] = $input[2];
+	$data1[3] = $input[3];
+	$data1[4] = $input[4];
+	$data1[5] = $input[5];
+	
 	$output[0] = $data;
 	$output[1] = $time;
 	$output[2] = $playerID;
+	$output[3] = $data1;
 	
 	return $output;
 }
 
 // Used for shavit timer when time is stored in the replay, not wr-based
-function write_shavit_final($filename, $data, $steamid, $time) {
+function write_shavit_final($filename, $data, $steamid, $time, $data1) {
+	
 	// Check if original replay stored flags and movetype
 	if (sizeof($data) > 6) {
 		$replayVersion = 2;
@@ -73,14 +85,17 @@ function write_shavit_final($filename, $data, $steamid, $time) {
 		// Write SteamID in [U:1:#######]
 		fwrite($handle, $steamid);
 		
+		echo "\nBefore: " . $data1[0][0] . "\nValue: " . $data[0][0] . "\nAfter: " . pack('g', $data[0][0], 4) . "\n";
+		
 		// Write frames
-		for ($i = 0; $i < 1; $i++) {
+		for ($i = 0; $i < $frameCount; $i++) {
 			fwrite($handle, pack('g', $data[0][$i]), 4);
 			fwrite($handle, pack('g', $data[1][$i]), 4);
 			fwrite($handle, pack('g', $data[2][$i]), 4);
 			fwrite($handle, pack('g', $data[3][$i]), 4);
 			fwrite($handle, pack('g', $data[4][$i]), 4);
 			fwrite($handle, pack('l', $data[5][$i]), 4);
+			
 			
 			// Write flags and movetype only if replayVersion 2 or later
 			if ($replayVersion >= 2) {
