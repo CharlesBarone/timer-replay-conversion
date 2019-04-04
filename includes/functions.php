@@ -18,7 +18,7 @@ function read_btimes2($filename) {
 	if ($handle) {
 		$header = str_split(fread($handle, 8), 4);
 		$playerID = unpack('l', $header[0])[1];
-		$time = round(unpack('g', $header[1])[1], 6, PHP_ROUND_HALF_DOWN);
+		$time = unpack('g', $header[1])[1]; // Don't round time to 6 decimals
 		
 		while ($buffer = fread($handle, 24)) {
 			$input[] = str_split($buffer, 4);
@@ -77,13 +77,13 @@ function write_shavit_final($filename, $data, $steamid, $time, $data1) {
 		
 		// Write the frame count
 		$frameCount = sizeOf($data[0]);
-		fwrite($handle, pack('l', $frameCount), 4);
+		fwrite($handle, pack('l', $frameCount, 4), 4);
 		
 		// Write the replay time
-		fwrite($handle, pack('g', $time), 4);
+		fwrite($handle, pack('g', $time, 4), 4);
 		
-		// Write SteamID in [U:1:#######]
-		fwrite($handle, $steamid);
+		// Write SteamID in [U:1:#######] format with null terminator
+		fwrite($handle, $steamid . "\0");
 		
 		echo "\nBefore: " . $data1[0][0] . "\nValue: " . $data[0][0] . "\nAfter: " . pack('g', $data[0][0], 4) . "\n";
 		
