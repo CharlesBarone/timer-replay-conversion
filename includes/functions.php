@@ -1,16 +1,13 @@
 <?php
 
-//Debug
-echo "<pre>";
-
 $filename = "bhop_ssj_0_0_0.txt";
 
 $filename2 = "bhop_ssj.replay";
 
 $steamid = "[U:1:156674509]";
 
-$output = read_btimes2($filename);
-write_shavit_final($filename2, $output[0], $steamid, $output[1], $output[3]);
+//$output = read_btimes2($filename);
+//write_shavit_final($filename2, $output[0], $steamid, $output[1]);
 //write_shavit_old($filename2, $output[0]);
 
 function read_btimes2($filename) {
@@ -45,23 +42,15 @@ function read_btimes2($filename) {
 	$data[4] = $vAng[1];
 	$data[5] = $buttons;
 	
-	$data1[0] = $input[0];
-	$data1[1] = $input[1];
-	$data1[2] = $input[2];
-	$data1[3] = $input[3];
-	$data1[4] = $input[4];
-	$data1[5] = $input[5];
-	
 	$output[0] = $data;
 	$output[1] = $time;
 	$output[2] = $playerID;
-	$output[3] = $data1;
 	
 	return $output;
 }
 
 // Used for shavit timer when time is stored in the replay, not wr-based
-function write_shavit_final($filename, $data, $steamid, $time, $data1) {
+function write_shavit_final($filename, $data, $steamid, $time) {
 	
 	// Check if original replay stored flags and movetype
 	if (sizeof($data) > 6) {
@@ -84,8 +73,6 @@ function write_shavit_final($filename, $data, $steamid, $time, $data1) {
 		
 		// Write SteamID in [U:1:#######] format with null terminator
 		fwrite($handle, $steamid . "\0");
-		
-		echo "\nBefore: " . $data1[0][0] . "\nValue: " . $data[0][0] . "\nAfter: " . pack('g', $data[0][0], 4) . "\n";
 		
 		// Write frames
 		for ($i = 0; $i < $frameCount; $i++) {
