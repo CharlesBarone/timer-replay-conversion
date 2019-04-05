@@ -62,8 +62,8 @@ Used for converting timer replay bot formats.
 
 ## FAQ
 
-[FAQ](FAQ)
+[FAQ](FAQ.md)
 
 ## License
 
-[MIT](License)
+[MIT](License.md)
