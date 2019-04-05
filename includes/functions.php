@@ -469,4 +469,154 @@ function write_ofir($filename, $data) {
 		fclose($handle);
 	}
 }
+
+function read_btimes183($filename, $mysqli) {
+	
+	$handle = @fopen($filename, "rb");
+	
+	if($handle) {
+		
+		$header = explode("|", fgets($handle, 64));
+		
+		$PlayerID = $header[0];
+		$time = (float)$header[1];
+		
+		while (($line = fgets($handle, 512)) !== false) {
+			$explodedLine = explode("|", $line);
+			
+			$vPos[0][] = (float)$explodedLine[0];
+			$vPos[1][] = (float)$explodedLine[1];
+			$vPos[2][] = (float)$explodedLine[2];
+			$vAng[0][] = (float)$explodedLine[3];
+			$vAng[1][] = (float)$explodedLine[4];
+			$buttons[] = (int)$explodedLine[5];
+		}
+	}
+	fclose($handle);
+	
+	$data[0] = $vPos[0];
+	$data[1] = $vPos[1];
+	$data[2] = $vPos[2];
+	$data[3] = $vAng[0];
+	$data[4] = $vAng[1];
+	$data[5] = $buttons;
+	
+	// Get steamid from playerid
+	$steamid = btimes183_playerid_to_steamid($PlayerID, $mysqli);
+	
+	// Convert $steamid to steam64
+	try
+	{
+		$s = new SteamID($steamid);
+		
+			if( $s->GetAccountType() !== SteamID :: TypeIndividual )
+			{
+				throw new InvalidArgumentException( 'We only support individual SteamIDs.' );
+			}
+			else if( !$s->IsValid() )
+			{
+				throw new InvalidArgumentException( 'Invalid SteamID.' );
+			}
+			
+			$s->SetAccountInstance( SteamID :: DesktopInstance );
+	}
+	catch( InvalidArgumentException $e )
+	{
+		echo 'Given SteamID could not be parsed: ' . $steamid;
+	}
+	
+	$steamid = $s->ConvertToUInt64() . PHP_EOL;
+	
+	$output[0] = $data;
+	$output[1] = $time;
+	$output[2] = $steamid;
+	
+	return $output;
+}
+
+function write_btimes183($filename, $data, $steamid, $time, $mysqli) {
+	
+	$handle = @fopen($filename, "wb");
+	if ($handle) {
+		
+		//Get playerid from steamid
+		$PlayerID = btimes183_steamid_to_playerid($steamid, $mysqli);
+		
+		// Write the header
+		fwrite($handle, $PlayerID . "|" . $time . "\n");
+		
+		// Get the frame count
+		$frameCount = sizeOf($data[0]);
+		
+		// Write frames
+		for ($i = 0; $i < $frameCount; $i++) {
+			fwrite($handle, $data[0][$i] . "|");
+			fwrite($handle, $data[1][$i] . "|");
+			fwrite($handle, $data[2][$i] . "|");
+			fwrite($handle, $data[3][$i] . "|");
+			fwrite($handle, $data[4][$i] . "|");
+			fwrite($handle, $data[5][$i] . "\n");
+		}
+		
+		fclose($handle);
+	}
+}
+
+function btimes183_steamid_to_playerid($steamid, $mysqli) {
+
+	// Make sure steamid is in correct format, STEAM_1:
+	try
+	{
+		$s = new SteamID($steamid);
+		
+			if( $s->GetAccountType() !== SteamID :: TypeIndividual )
+			{
+				throw new InvalidArgumentException( 'We only support individual SteamIDs.' );
+			}
+			else if( !$s->IsValid() )
+			{
+				throw new InvalidArgumentException( 'Invalid SteamID.' );
+			}
+			
+			$s->SetAccountInstance( SteamID :: DesktopInstance );
+	}
+	catch( InvalidArgumentException $e )
+	{
+		echo 'Given SteamID could not be parsed: ' . $steamid;
+	}
+	
+	$steamid = $s->RenderSteam2() . PHP_EOL;
+	
+	
+	if ($stmt = $mysqli->prepare("SELECT `PlayerID` FROM `players` WHERE `SteamID` = ? LIMIT 1;")) {
+		$stmt->bind_param('s', $steamid);  // Bind $steamid to parameter.
+		$stmt->execute();    // Execute the prepared query.
+		$stmt->store_result();
+		$stmt->bind_result($playerid); // get variables from result.
+		$stmt->fetch();
+
+		if ($stmt->num_rows == 1) {
+			return $playerid;
+		} else {
+			return False;
+		}
+	}
+}
+
+function btimes183_playerid_to_steamid($playerid, $mysqli) {
+
+	if ($stmt = $mysqli->prepare("SELECT `SteamID` FROM `players` WHERE `PlayerID` = ? LIMIT 1;")) {
+		$stmt->bind_param('i', $playerid);  // Bind $playerid to parameter.
+		$stmt->execute();    // Execute the prepared query.
+		$stmt->store_result();
+		$stmt->bind_result($steamid); // get variables from result.
+		$stmt->fetch();
+
+		if ($stmt->num_rows == 1) {
+			return $steamid;
+		} else {
+			return False;
+		}
+	}
+}
 ?>
