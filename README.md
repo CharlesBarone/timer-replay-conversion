@@ -1,4 +1,4 @@
-# timer-replay-conversion
+# Timer Replay Conversion
 Used for converting timer replay bot formats.
 
 ## Functions
@@ -59,3 +59,11 @@ Used for converting timer replay bot formats.
 		</tr>
 	</tbody>
 </table>
+
+## FAQ
+
+[FAQ](FAQ)
+
+## License
+
+[MIT](License)
