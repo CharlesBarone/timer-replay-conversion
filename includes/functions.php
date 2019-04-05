@@ -10,6 +10,18 @@ $output[0] being an array containing the replay data.
 $output[1] being the time (Returned as 0.0 on a wr-based replay)
 $output[1] being the steam64 id of the player (Not returned on a wr-based replay)
 
+
+$data[0] = $vPos[0];
+$data[1] = $vPos[1];
+$data[2] = $vPos[2];
+$data[3] = $vAng[0];
+$data[4] = $vAng[1];
+$data[5] = $buttons;
+$data[6] = $flags;
+$data[7] = $movetype;
+$data[8] = $impulse;
+$data[9] = $weapon;
+
 */
 
 function read_btimes2($filename, $mysqli) {
@@ -334,7 +346,7 @@ function write_shavit_final($filename, $data, $steamid, $time) {
 	$steamid = $s->RenderSteam3() . PHP_EOL;
 	
 	// Check if original replay stored flags and movetype
-	if (sizeof($data) > 6) {
+	if (isset($data[6]) && isset($data[7])) {
 		$replayVersion = 2;
 	} else {
 		$replayVersion = 1;
@@ -399,4 +411,62 @@ function write_shavit_old($filename, $data) {
 	}
 }
 
+function read_ofir($filename) {
+	
+	$handle = @fopen($filename, "rb");
+	
+	if($handle) {
+		while (($line = fgets($handle, 512)) !== false) {
+			$explodedLine = explode("|", $line);
+			
+			$vPos[0][] = (float)$explodedLine[0];
+			$vPos[1][] = (float)$explodedLine[1];
+			$vPos[2][] = (float)$explodedLine[2];
+			$vAng[0][] = (float)$explodedLine[3];
+			$vAng[1][] = (float)$explodedLine[4];
+			$buttons[] = (int)$explodedLine[5];
+			$impulse[] = (int)$explodedLine[6];
+			$weapon[] = (int)$explodedLine[7];
+		}
+	}
+	fclose($handle);
+	
+	$data[0] = $vPos[0];
+	$data[1] = $vPos[1];
+	$data[2] = $vPos[2];
+	$data[3] = $vAng[0];
+	$data[4] = $vAng[1];
+	$data[5] = $buttons;
+	$data[8] = $impulse;
+	$data[9] = $weapon;
+	
+	$output[0] = $data;
+	$output[1] = 0.0; // Return 0.0 for time because ofir's timer is wr-based
+	
+	return $output;
+}
+
+function write_ofir($filename, $data) {
+	
+	$handle = @fopen($filename, "wb");
+	if ($handle) {
+		
+		// Get the frame count
+		$frameCount = sizeOf($data[0]);
+		
+		// Write frames
+		for ($i = 0; $i < $frameCount; $i++) {
+			fwrite($handle, $data[0][$i] . "|");
+			fwrite($handle, $data[1][$i] . "|");
+			fwrite($handle, $data[2][$i] . "|");
+			fwrite($handle, $data[3][$i] . "|");
+			fwrite($handle, $data[4][$i] . "|");
+			fwrite($handle, $data[5][$i] . "|");
+			if (isset($data[8])) { fwrite($handle, $data[8][$i] . "|"); } else { fwrite($handle, "0|"); }
+			if (isset($data[9])) { fwrite($handle, $data[9][$i] . "\n"); } else { fwrite($handle, "0\n"); }
+		}
+		
+		fclose($handle);
+	}
+}
 ?>
