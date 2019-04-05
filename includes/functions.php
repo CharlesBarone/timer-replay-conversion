@@ -171,7 +171,7 @@ function read_shavit($filename) {
 	if ($handle) {
 		$header = explode(":", fgets($handle, 64));
 		
-		if ($header[1] = "{SHAVITREPLAYFORMAT}{FINAL}") {
+		if ($header[1] === "{SHAVITREPLAYFORMAT}{FINAL}\n") {
 
 			$header2 = str_split(fread($handle, 8), 4);
 			$frameCount = unpack('l', $header2[0])[1];
@@ -216,7 +216,7 @@ function read_shavit($filename) {
 					$movetype[] = unpack('l', $frame[7])[1];
 				}
 			}
-		} else if ($header[1] = "{SHAVITREPLAYFORMAT}{V2}") { // wr-based, no time or player stored
+		} else if ($header[1] === "{SHAVITREPLAYFORMAT}{V2}\n") { // wr-based, no time or player stored
 			
 			$frameCount = (int)$header[0];
 			
@@ -236,13 +236,18 @@ function read_shavit($filename) {
 				$buttons[] = unpack('l', $frame[5])[1];
 			}
 		} else { // Old plain text format, wr-based, no time or player stored
-			while (($line = explode("|", fgets($handle, 320)) !== false) {
-				$vPos[0][] = $line[0];
-				$vPos[1][] = $line[1];
-				$vPos[2][] = $line[2];
-				$vAng[0][] = $line[3];
-				$vAng[1][] = $line[4];
-				$buttons[] = $line[5];
+			// The pointer is currently not at start of the file because we attempted to read the header, so we have to reset it
+			rewind($handle);
+			
+			while (($line = fgets($handle, 320)) !== false) {
+				$explodedLine = explode("|", $line);
+				
+				$vPos[0][] = (float)$explodedLine[0];
+				$vPos[1][] = (float)$explodedLine[1];
+				$vPos[2][] = (float)$explodedLine[2];
+				$vAng[0][] = (float)$explodedLine[3];
+				$vAng[1][] = (float)$explodedLine[4];
+				$buttons[] = (int)$explodedLine[5];
 			}
 		}
 	}
@@ -265,7 +270,7 @@ function read_shavit($filename) {
 	$output[0] = $data;
 	
 	// Some shavit formats are wr-based and thus have no steamid
-	if (isset($steamid) {
+	if (isset($steamid)) {
 		// Convert $steamid to steam64
 		try
 		{
