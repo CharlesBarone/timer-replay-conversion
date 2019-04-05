@@ -7,8 +7,8 @@ require_once 'SteamID.php'; // https://github.com/xPaw/SteamID.php
 All read functions return an array.
 
 $output[0] being an array containing the replay data.
-$output[1] being the time
-$output[1] being the steam64 id of the player
+$output[1] being the time (Returned as 0.0 on a wr-based replay)
+$output[1] being the steam64 id of the player (Not returned on a wr-based replay)
 
 */
 
@@ -216,10 +216,34 @@ function read_shavit($filename) {
 					$movetype[] = unpack('l', $frame[7])[1];
 				}
 			}
-		} else if ($header[1] = "{SHAVITREPLAYFORMAT}{V2}") {
+		} else if ($header[1] = "{SHAVITREPLAYFORMAT}{V2}") { // wr-based, no time or player stored
 			
-		} else { // Old Plain text format
+			$frameCount = (int)$header[0];
 			
+			while ($buffer = fread($handle, 24)) {
+				$input[] = str_split($buffer, 4);
+			}
+			if (!feof($handle)) {
+				echo "Error: unexpected fread() fail\n";
+			}
+			
+			foreach ($input as $frame) {
+				$vPos[0][] = round(unpack('g', $frame[0])[1], 6, PHP_ROUND_HALF_DOWN);
+				$vPos[1][] = round(unpack('g', $frame[1])[1], 6, PHP_ROUND_HALF_DOWN);
+				$vPos[2][] = round(unpack('g', $frame[2])[1], 6, PHP_ROUND_HALF_DOWN);
+				$vAng[0][] = round(unpack('g', $frame[3])[1], 6, PHP_ROUND_HALF_DOWN);
+				$vAng[1][] = round(unpack('g', $frame[4])[1], 6, PHP_ROUND_HALF_DOWN);
+				$buttons[] = unpack('l', $frame[5])[1];
+			}
+		} else { // Old plain text format, wr-based, no time or player stored
+			while (($line = explode("|", fgets($handle, 320)) !== false) {
+				$vPos[0][] = $line[0];
+				$vPos[1][] = $line[1];
+				$vPos[2][] = $line[2];
+				$vAng[0][] = $line[3];
+				$vAng[1][] = $line[4];
+				$buttons[] = $line[5];
+			}
 		}
 	}
 	fclose($handle);
@@ -238,32 +262,42 @@ function read_shavit($filename) {
 		$data[7] = $movetype;
 	}
 	
-	// Convert $steamid to steam64
-	try
-	{
-		$s = new SteamID($steamid);
-		
-			if( $s->GetAccountType() !== SteamID :: TypeIndividual )
-			{
-				throw new InvalidArgumentException( 'We only support individual SteamIDs.' );
-			}
-			else if( !$s->IsValid() )
-			{
-				throw new InvalidArgumentException( 'Invalid SteamID.' );
-			}
-			
-			$s->SetAccountInstance( SteamID :: DesktopInstance );
-	}
-	catch( InvalidArgumentException $e )
-	{
-		echo 'Given SteamID could not be parsed: ' . $steamid;
-	}
-	
-	$steamid = $s->ConvertToUInt64() . PHP_EOL;
-	
 	$output[0] = $data;
-	$output[1] = $time;
-	$output[2] = $steamid;
+	
+	// Some shavit formats are wr-based and thus have no steamid
+	if (isset($steamid) {
+		// Convert $steamid to steam64
+		try
+		{
+			$s = new SteamID($steamid);
+			
+				if( $s->GetAccountType() !== SteamID :: TypeIndividual )
+				{
+					throw new InvalidArgumentException( 'We only support individual SteamIDs.' );
+				}
+				else if( !$s->IsValid() )
+				{
+					throw new InvalidArgumentException( 'Invalid SteamID.' );
+				}
+				
+				$s->SetAccountInstance( SteamID :: DesktopInstance );
+		}
+		catch( InvalidArgumentException $e )
+		{
+			echo 'Given SteamID could not be parsed: ' . $steamid;
+		}
+		
+		$steamid = $s->ConvertToUInt64() . PHP_EOL;
+		
+		$output[2] = $steamid;
+	}
+	
+	// Some shavit formats are wr-based and thus have no time
+	if (isset($time)) {
+		$output[1] = $time;
+	} else {
+		$output[1] = 0.0;
+	}
 	
 	return $output;
 }
