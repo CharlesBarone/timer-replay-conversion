@@ -8,7 +8,11 @@ All read functions return an array.
 
 $output[0] being an array containing the replay data.
 $output[1] being the time (Returned as 0.0 on a wr-based replay)
-$output[1] being the steam64 id of the player (Not returned on a wr-based replay)
+$output[2] being the steam64 id of the player (Not returned on a wr-based replay)
+$output[3] being a string containing the map name
+$output[4] being an int containing the type
+$output[5] being an int containing the style
+$output[6] being an int containing the preframes
 
 
 $data[0] = $vPos[0];
@@ -184,6 +188,25 @@ function read_shavit($filename) {
 		$header = explode(":", fgets($handle, 64));
 		
 		if ($header[1] === "{SHAVITREPLAYFORMAT}{FINAL}\n") {
+			
+			if ((int)$header[0] >= 3) {
+				// Read map, one character at a time, until you reach the NUL Terminator
+				while (false !== ($char = fgetc($handle)) && $char != pack('c', '\0')) {
+					$map[] = $char;
+				}
+			
+				// Convert array of characters into a string
+				$map = implode($map);
+				
+				// Read style
+				$style = (int)unpack('c', fread($handle, 1))[1];
+		
+				// Read type
+				$type = (int)unpack('c', fread($handle, 1))[1];
+				
+				// Write preframes (Number of frames with prestrafe in them)
+				$preframes = (int)unpack('g', fread($handle, 4))[1];
+			}
 
 			$header2 = str_split(fread($handle, 8), 4);
 			$frameCount = unpack('l', $header2[0])[1];
@@ -198,14 +221,14 @@ function read_shavit($filename) {
 			$steamid = implode($steamid);
 			
 			// Loop through replay data based on format sub-version
-			if ($header[0] === "2") {
+			if ((int)$header[0] >= 2) {
 				while ($buffer = fread($handle, 32)) {
 					$input[] = str_split($buffer, 4);
 				}
 				if (!feof($handle)) {
 					echo "Error: unexpected fread() fail\n";
 				}
-			} else if ($header[0] === "1") {
+			} else if ((int)$header[0] === 1) {
 				while ($buffer = fread($handle, 24)) {
 					$input[] = str_split($buffer, 4);
 				}
@@ -223,7 +246,7 @@ function read_shavit($filename) {
 				$buttons[] = unpack('l', $frame[5])[1];
 				
 				// Only for format sub-version 2
-				if ($header[0] === "2") {
+				if ((int)$header[0] >= 2) {
 					$flags[] = unpack('l', $frame[6])[1];
 					$movetype[] = unpack('l', $frame[7])[1];
 				}
@@ -316,11 +339,19 @@ function read_shavit($filename) {
 		$output[1] = 0.0;
 	}
 	
+	// Shavit final subversion 3 added map, style, and preframes to file.
+	if ((int)$header[0] >= 3) {
+		$output[3] = $map;
+		$output[4] = $type;
+		$output[5] = $style;
+		$output[6] = $preframes;
+	}
+	
 	return $output;
 }
 
 // Used for shavit timer when time is stored in the replay, not wr-based
-function write_shavit_final($filename, $data, $steamid, $time) {
+function write_shavit_final($filename, $data, $steamid, $time, $map, $style, $type, $preframes) {
 	
 	// Verify that $steamid is in [U:1:#######] format
 	try
@@ -345,17 +376,31 @@ function write_shavit_final($filename, $data, $steamid, $time) {
 	
 	$steamid = $s->RenderSteam3() . PHP_EOL;
 	
+	/* Always do subversion 3 because of poor design in defining replay type
 	// Check if original replay stored flags and movetype
 	if (isset($data[6]) && isset($data[7])) {
-		$replayVersion = 2;
+		$replayVersion = 3;
 	} else {
 		$replayVersion = 1;
-	}
+	} */
+	$replayVersion = 3;
 	
 	$handle = @fopen($filename, "wb");
 	if ($handle) {
 		$header = $replayVersion . ":{SHAVITREPLAYFORMAT}{FINAL}\n";
 		fwrite($handle, $header);
+		
+		// Write map name
+		fwrite($handle, $map . "\0");
+		
+		// Write style
+		fwrite($handle, pack('c', (int)$style), 1);
+		
+		// Write type
+		fwrite($handle, pack('c', (int)$type), 1);
+		
+		// Write preframes (Number of frames with prestrafe in them)
+		fwrite($handle, pack('g', $preframes), 4);
 		
 		// Write the frame count
 		$frameCount = sizeOf($data[0]);
@@ -376,19 +421,33 @@ function write_shavit_final($filename, $data, $steamid, $time) {
 			fwrite($handle, pack('g', $data[4][$i]), 4);
 			fwrite($handle, pack('l', $data[5][$i]), 4);
 			
+			// flags
+			if (isset($data[6])) {
+				fwrite($handle, pack('l', $data[6][$i]), 4);
+			} else {
+				fwrite($handle, pack('l', 65664), 4); // 65664 = FL_CLIENT|FL_AIMTARGET
+			}
 			
+			// movetype
+			if (isset($data[7])) {
+				fwrite($handle, pack('l', $data[7][$i]), 4);
+			} else {
+				fwrite($handle, pack('l', 2), 4); // 2 = MOVETYPE_WALK
+			}
+			
+			/* Always do subversion 3 because of poor design in defining replay type
 			// Write flags and movetype only if replayVersion 2 or later
 			if ($replayVersion >= 2) {
 				fwrite($handle, pack('l', $data[6][$i]), 4); // flags
 				fwrite($handle, pack('l', $data[7][$i]), 4); // movetype
-			}
+			} */
 		}
 		
 		fclose($handle);
 	}
 }
 
-// Used for shavit timer when only frames are stored in plain text, wr-based
+// Used for shavit timer when only frames are stored in plain text, wr-based. ONLY INCLUDED FOR LEGACY PURPOSES!
 function write_shavit_old($filename, $data) {
 	
 	$handle = @fopen($filename, "wb");
