@@ -4,11 +4,11 @@ Used for converting timer replay bot formats.
 ## Tutorial
 
 1. Upload to a webserver running php version 7.2.0 or greater.
-2. Upload the diretory built by your timer in `/addons/sourcemod/data/` to `data_in`.
+2. Upload the diretory built by your timer in `/addons/sourcemod/data/` to `data_in/`.
 3. Visit index.php appending the following to the end of the URL.
 `?input_format=INPUT_TIMER_HERE&output_format=OUTPUT_TIMER_HERE&tickrate=TICKRATE_HERE`
 Valid timer names are the following: btimes2, btimes183, ofir, shavit.
-4. When `Done!` is printed to the page, the conversion is complete! Download your newly converted replays from `data_out`.
+4. When `Done!` is printed to the page, the conversion is complete! Download your newly converted replays from `data_out/`.
 
 If you are converting to or from bTimes 1.8.3 or 2.0, you will need to grant the converter databse access. Database settings can be found in `includes/config.php`
 
