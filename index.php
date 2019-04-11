@@ -212,6 +212,71 @@ if (isset($input) && isset($output)) {
 		$replays2[] = $replay;
 	}
 	
+	
+	if (!file_exists($output_dir)) {
+		mkdir($output_dir, 0777, true);
+	}
+	
+	// If necessary, create type dirs
+	if (isset($output_type_dirs)) {
+		foreach ($output_type_dirs as $output_type_dir)
+		if (!file_exists($output_dir . $output_type_dir)) {
+			mkdir($output_dir . $output_type_dir, 0777, true);
+		}
+	}
+	
 	// Write new replay from contents of $replays2
+	foreach($replays2 as $replay) {
+		if (isset($output_type_dirs)) {
+			$basedir = $output_dir . $output_type_dirs[$replay['type']] . "/";
+		} else {
+			$basedir = $output_dir;
+		}
+		
+		if ($input_style_dirs) {
+			if (!file_exists($basedir . $replay['style'])) {
+				mkdir($basedir . $replay['style'], 0777, true);
+			}
+			
+			$basedir = $basedir . $replay['style'] . "/";
+		}
+		
+		// Write replay to basedir based on output timer
+		switch($output) {
+			case "btimes2":
+			if(!isset($replay['tas'])) {$replay['tas'] = 0;}
+			if(!isset($replay['time'])) {$replay['time'] = 0.0;}
+			if(!isset($replay['steamid'])) {$replay['steamid'] = 0;} // UNTESTED
+			$filename = $replay['map'] . "_" . $replay['type'] . "_" . $replay['style'] . "_" . $replay['tas'] . $output_ext;
+			write_btimes2($basedir . $filename, $replay['data'], $replay['steamid'], $replay['time'], $mysqli2);
+			break;
+		case "btimes183":
+			if(!isset($replay['time'])) {$replay['time'] = 0.0;}
+			if(!isset($replay['steamid'])) {$replay['steamid'] = 0;} // UNTESTED
+			$filename = $replay['map'] . "_" . $replay['type'] . "_" . $replay['style'] . $output_ext;
+			write_btimes183($basedir . $filename, $replay['data'], $replay['steamid'], $replay['time'], $mysqli2);
+			break;
+		case "shavit":
+			if ($replay['type'] === 1) {
+				$filename = $replay['map'] . "_1" . $output_ext;
+			} else {
+				$filename = $replay['map'] . $output_ext;
+			}
+			if(!isset($replay['preframes'])) {$replay['preframes'] = 0;}
+			if(!isset($replay['time'])) {$replay['time'] = 0.0;}
+			if(!isset($replay['steamid'])) {$replay['steamid'] = "invalid";}
+			write_shavit_final($basedir . $filename, $replay['data'], $replay['steamid'], $replay['time'], $replay['map'], $replay['style'], $replay['type'], $replay['preframes']);
+			break;
+		case "ofir":
+			$filename = $replay['map'] . $output_ext;
+			write_ofir($basedir . $filename, $replay['data']);
+			break;
+		default:
+			exit("Error: Invalid Ouput timer!");
+			break;
+		}
+	}
+	
+	echo "Done!";
 }
 ?>

@@ -103,11 +103,14 @@ function write_btimes2($filename, $data, $steamid, $time, $mysqli) {
 		$playerid = btimes2_steamid_to_playerid($steamid, $mysqli);
 		fwrite($handle, pack('l', $playerid), 4);
 		
-		// Write the replay time
-		fwrite($handle, pack('g', $time), 4);
-		
 		// Get the frame count
 		$frameCount = sizeOf($data[0]);
+		
+		// If time is 0.0, calculate time
+		if ($time === 0.0) { $time = framecount_to_time($frameCount); }
+		
+		// Write the replay time
+		fwrite($handle, pack('g', $time), 4);
 		
 		// Write frames
 		for ($i = 0; $i < $frameCount; $i++) {
@@ -306,30 +309,34 @@ function read_shavit($filename) {
 	
 	// Some shavit formats are wr-based and thus have no steamid
 	if (isset($steamid)) {
-		// Convert $steamid to steam64
-		try
-		{
-			$s = new SteamID($steamid);
-			
-				if( $s->GetAccountType() !== SteamID :: TypeIndividual )
-				{
-					throw new InvalidArgumentException( 'We only support individual SteamIDs.' );
-				}
-				else if( !$s->IsValid() )
-				{
-					throw new InvalidArgumentException( 'Invalid SteamID.' );
-				}
+		if ($steamid === "invalid") {
+			$steamid = NULL;
+		} else {
+			// Convert $steamid to steam64
+			try
+			{
+				$s = new SteamID($steamid);
 				
-				$s->SetAccountInstance( SteamID :: DesktopInstance );
+					if( $s->GetAccountType() !== SteamID :: TypeIndividual )
+					{
+						throw new InvalidArgumentException( 'We only support individual SteamIDs.' );
+					}
+					else if( !$s->IsValid() )
+					{
+						throw new InvalidArgumentException( 'Invalid SteamID.' );
+					}
+					
+					$s->SetAccountInstance( SteamID :: DesktopInstance );
+			}
+			catch( InvalidArgumentException $e )
+			{
+				echo 'Given SteamID could not be parsed: ' . $steamid;
+			}
+			
+			$steamid = $s->ConvertToUInt64() . PHP_EOL;
+			
+			$output[2] = $steamid;
 		}
-		catch( InvalidArgumentException $e )
-		{
-			echo 'Given SteamID could not be parsed: ' . $steamid;
-		}
-		
-		$steamid = $s->ConvertToUInt64() . PHP_EOL;
-		
-		$output[2] = $steamid;
 	}
 	
 	// Some shavit formats are wr-based and thus have no time
@@ -353,28 +360,33 @@ function read_shavit($filename) {
 // Used for shavit timer when time is stored in the replay, not wr-based
 function write_shavit_final($filename, $data, $steamid, $time, $map, $style, $type, $preframes) {
 	
-	// Verify that $steamid is in [U:1:#######] format
-	try
-	{
-		$s = new SteamID($steamid);
-		
-			if( $s->GetAccountType() !== SteamID :: TypeIndividual )
-			{
-				throw new InvalidArgumentException( 'We only support individual SteamIDs.' );
-			}
-			else if( !$s->IsValid() )
-			{
-				throw new InvalidArgumentException( 'Invalid SteamID.' );
-			}
-			
-			$s->SetAccountInstance( SteamID :: DesktopInstance );
-	}
-	catch( InvalidArgumentException $e )
-	{
-		echo 'Given SteamID could not be parsed: ' . $steamid;
-	}
+	if ($steamid === "invalid") {
+		// Do nothing, input replay was wr-based
+	} else {
 	
-	$steamid = $s->RenderSteam3() . PHP_EOL;
+		// Verify that $steamid is in [U:1:#######] format
+		try
+		{
+			$s = new SteamID($steamid);
+			
+				if( $s->GetAccountType() !== SteamID :: TypeIndividual )
+				{
+					throw new InvalidArgumentException( 'We only support individual SteamIDs.' );
+				}
+				else if( !$s->IsValid() )
+				{
+					throw new InvalidArgumentException( 'Invalid SteamID.' );
+				}
+				
+				$s->SetAccountInstance( SteamID :: DesktopInstance );
+		}
+		catch( InvalidArgumentException $e )
+		{
+			echo 'Given SteamID could not be parsed: ' . $steamid;
+		}
+		
+		$steamid = $s->RenderSteam3() . PHP_EOL;
+	}
 	
 	/* Always do subversion 3 because of poor design in defining replay type
 	// Check if original replay stored flags and movetype
@@ -404,7 +416,10 @@ function write_shavit_final($filename, $data, $steamid, $time, $map, $style, $ty
 		
 		// Write the frame count
 		$frameCount = sizeOf($data[0]);
-		fwrite($handle, pack('l', $frameCount, 4), 4);
+		fwrite($handle, pack('l', $frameCount), 4);
+		
+		// If time is 0.0, calculate time
+		if ($time === 0.0) { $time = framecount_to_time($frameCount); }
 		
 		// Write the replay time
 		fwrite($handle, pack('g', $time), 4);
@@ -601,11 +616,14 @@ function write_btimes183($filename, $data, $steamid, $time, $mysqli) {
 		//Get playerid from steamid
 		$PlayerID = btimes183_steamid_to_playerid($steamid, $mysqli);
 		
-		// Write the header
-		fwrite($handle, $PlayerID . "|" . $time . "\n");
-		
 		// Get the frame count
 		$frameCount = sizeOf($data[0]);
+		
+		// If time is 0.0, calculate time
+		if ($time === 0.0) { $time = framecount_to_time($frameCount); }
+		
+		// Write the header
+		fwrite($handle, $PlayerID . "|" . $time . "\n");
 		
 		// Write frames
 		for ($i = 0; $i < $frameCount; $i++) {
@@ -677,5 +695,16 @@ function btimes183_playerid_to_steamid($playerid, $mysqli) {
 			return False;
 		}
 	}
+}
+
+function framecount_to_time($framecount) {
+	
+	if($_REQUEST['tickrate'] === NULL || !ctype_digit($_REQUEST['tickrate'])) {
+		exit('Error: A valid tickrate required for this conversion!');
+	}
+	
+	$time = round((float)$framecount/(float)$_REQUEST['tickrate'], 6, PHP_ROUND_HALF_DOWN);
+	
+	return $time;
 }
 ?>
