@@ -1,6 +1,21 @@
 # Timer Replay Conversion
 Used for converting timer replay bot formats.
 
+## Tutorial
+
+1. Upload to a webserver running php version 7.2.0 or greater.
+2. Visit index.php appending the following to the end of the URL.
+`?input_format=INPUT_TIMER_HERE&output_format=OUTPUT_TIMER_HERE&tickrate=TICKRATE_HERE`
+Valid timer names are the following: btimes2, btimes183, ofir, shavit.
+
+If you are converting to or from bTimes 1.8.3 or 2.0, you will need to grant the converter databse access. Database settings can be found in `includes/config.php`
+
+The first credentials set is used for the input timer's database. The second credentials set is for the output timer's database.
+
+If only one of your timers requires database access, you only need to confiugure the database credentials for that timer.
+
+The tickrate parameter is only required when converting from a wr-based replay format to a replay format that is not wr-based.
+
 ## Functions
 
 <table>
